@@ -1,0 +1,190 @@
+/* ============ COUNTDOWN ============ */
+(function(){
+  // total seconds: 29:43 = 1783
+  let total = 29*60 + 43;
+  const cdMin = document.getElementById('cdMin');
+  const cdSec = document.getElementById('cdSec');
+  const topTimer = document.getElementById('topTimer');
+
+  function fmt(n){return String(n).padStart(2,'0')}
+
+  function tick(){
+    if(total <= 0){
+      // reset back to 29:43 to keep urgency feel
+      total = 29*60 + 43;
+    }
+    const m = Math.floor(total/60);
+    const s = total % 60;
+    if(cdMin) cdMin.textContent = fmt(m);
+    if(cdSec) cdSec.textContent = fmt(s);
+    if(topTimer) topTimer.textContent = fmt(m) + ':' + fmt(s);
+    total--;
+  }
+  tick();
+  setInterval(tick, 1000);
+})();
+
+/* carrossel agora é puro CSS marquee — sem JS necessário */
+
+/* CTAs do checkout: deixar passar (links reais)
+   Marca sessionStorage pra exit-intent saber que o user clicou */
+document.querySelectorAll('[data-plan]').forEach(a=>{
+  a.addEventListener('click',()=>{
+    try { sessionStorage.setItem('clickedCheckout','1'); } catch(_){}
+  });
+});
+
+/* Smooth scroll para âncoras internas (#premium, #pricing, etc.)
+   IMPORTANTE: usa replaceState pra NÃO empilhar nada no history.
+   Sem isso, no mobile o "voltar" acharia que o user tá saindo do site
+   quando na verdade só rolou pra outra seção. */
+document.querySelectorAll('a[href^="#"]').forEach(function(a){
+  a.addEventListener('click', function(e){
+    var href = a.getAttribute('href');
+    if(!href || href === '#') return;
+    var target = document.querySelector(href);
+    if(!target) return;
+    e.preventDefault();
+    target.scrollIntoView({behavior:'smooth', block:'start'});
+    // Atualiza URL sem poluir history stack
+    try { history.replaceState(history.state, '', href); } catch(_){}
+  });
+});
+
+/* ============ EXIT-INTENT MODAL ============ */
+(function(){
+  var modal = document.getElementById('exitModal');
+  if(!modal) return;
+  var closeBtn = modal.querySelector('.exit-close');
+  var nopeBtn  = modal.querySelector('.exit-nope');
+  var KEY = 'exitShown';
+
+  function alreadyFired(){
+    try { return sessionStorage.getItem(KEY) === '1'; } catch(_){ return false; }
+  }
+  function alreadyClicked(){
+    try { return sessionStorage.getItem('clickedCheckout') === '1'; } catch(_){ return false; }
+  }
+  function open(){
+    if(alreadyFired() || alreadyClicked()) return;
+    try { sessionStorage.setItem(KEY,'1'); } catch(_){}
+    modal.classList.add('open');
+    document.body.style.overflow = 'hidden';
+  }
+  function close(){
+    modal.classList.remove('open');
+    document.body.style.overflow = '';
+  }
+  closeBtn && closeBtn.addEventListener('click', close);
+  nopeBtn  && nopeBtn.addEventListener('click', function(e){ e.preventDefault(); close(); });
+  modal.addEventListener('click', function(e){ if(e.target === modal) close(); });
+
+  /* ----- DESKTOP: mouse saindo pela parte de cima da viewport ----- */
+  var isTouch = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
+  if(!isTouch){
+    document.addEventListener('mouseleave', function(e){
+      if(e.clientY <= 0){
+        setTimeout(function(){
+          if(!modal.classList.contains('open')) open();
+        }, 200);
+      }
+    });
+  }
+
+  /* ----- MOBILE: intercepta o botão "voltar" real do navegador ----- */
+  if(isTouch){
+    try {
+      history.pushState({exitTrap:true}, '', location.href);
+      window.addEventListener('popstate', function(){
+        if(alreadyFired() || alreadyClicked()) return;
+        open();
+        history.pushState({exitTrap:true}, '', location.href);
+      });
+    } catch(_){}
+  }
+
+  /* tecla ESC fecha */
+  document.addEventListener('keydown', function(e){
+    if(e.key === 'Escape' && modal.classList.contains('open')) close();
+  });
+})();
+
+/* ============ REAL-TIME PURCHASE TOASTS ============ */
+(function() {
+  const names = [
+    "Lucas Silva", "Mariana Costa", "Bruno Rodrigues", "Juliana Santos",
+    "Thiago Mello", "Amanda Ferreira", "Rodrigo Souza", "Fernanda Oliveira",
+    "Gabriel Lima", "Camila Barbosa", "Felipe Azevedo", "Letícia Castro",
+    "Gustavo Ribeiro", "Larissa Neves", "Pedro Gomes", "Beatriz Rocha",
+    "Matheus Carvalho", "Isabela Mendes", "Diego Almeida", "Carolina Martins",
+    "Rafael Cardoso", "Patricia Vieira", "Arthur Teixeira", "Vanessa Moreira",
+    "Leonardo Nogueira", "Gabriela Dias", "Renan Ramos", "Aline Pereira"
+  ];
+  const actions = [
+    "garantiu o Nihongo Fácil!",
+    "acabou de garantir o acesso vitalício!",
+    "liberou o Plano Premium + 4 Bônus!",
+    "garantiu os mapas mentais!"
+  ];
+  const times = [
+    "há poucos segundos",
+    "há 1 minuto",
+    "há 45 segundos",
+    "há 15 segundos",
+    "há 2 minutos"
+  ];
+
+  // Create toast elements dynamically
+  const toastEl = document.createElement('div');
+  toastEl.className = 'purchase-toast';
+  
+  const iconEl = document.createElement('div');
+  iconEl.className = 'toast-icon';
+  iconEl.textContent = '🇯🇵';
+  
+  const infoEl = document.createElement('div');
+  infoEl.className = 'toast-info';
+  
+  const titleEl = document.createElement('span');
+  titleEl.className = 'toast-title';
+  
+  const subtitleEl = document.createElement('span');
+  subtitleEl.className = 'toast-subtitle';
+  
+  infoEl.appendChild(titleEl);
+  infoEl.appendChild(subtitleEl);
+  toastEl.appendChild(iconEl);
+  toastEl.appendChild(infoEl);
+  document.body.appendChild(toastEl);
+
+  function formatName(fullName) {
+    const parts = fullName.split(' ');
+    if (parts.length > 1) {
+      return parts[0] + ' ' + parts[1].charAt(0) + '.';
+    }
+    return fullName;
+  }
+
+  function showToast() {
+    const name = names[Math.floor(Math.random() * names.length)];
+    const formattedName = formatName(name);
+    const action = actions[Math.floor(Math.random() * actions.length)];
+    const time = times[Math.floor(Math.random() * times.length)];
+    
+    titleEl.textContent = `${formattedName} ${action}`;
+    subtitleEl.textContent = time;
+    
+    toastEl.classList.add('active');
+    
+    setTimeout(function() {
+      toastEl.classList.remove('active');
+    }, 6000); // Exibe por 6 segundos antes de ocultar
+  }
+
+  // Primeiro surge em 11 segundos, depois repete a cada 26 segundos
+  setTimeout(function() {
+    showToast();
+    setInterval(showToast, 26000);
+  }, 11000);
+})();
+
